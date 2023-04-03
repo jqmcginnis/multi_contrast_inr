@@ -19,11 +19,6 @@ class obj:
 def dict2obj(dict1):
     return json.loads(json.dumps(dict1), object_hook=obj)
 
-'''
-def get_string(my_dict):
-    result = '_'.join([f"{key}-{value}" for key, value in my_dict.items()])
-    return result
-'''
 def get_string(my_dict):
     return '_'.join([str(value) for value in my_dict.values()])
 
