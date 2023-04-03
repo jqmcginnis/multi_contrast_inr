@@ -4,8 +4,19 @@
 
 <img src="figures/overview_miccai.png" alt="Overview" width="858" height="608" title="Overview">
 
+
+## Datasets
+
+We conduct our experiments on three different Datasets:
+
+- BRATS (25 patients)
+- MSSEG-2016 (25 patients)
+- in-house MS Dataset (cMS) (25 patients)
+
+
 ## Requirements
 
+We provide an enviornment file that can be used to setup a conda environment.
 
 
 ## Usage
