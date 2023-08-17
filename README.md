@@ -1,6 +1,4 @@
-## Single-subject Multi-contrast MRI
-Super-resolution via Implicit Neural
-Representations
+## Single-subject Multi-contrast MRI Super-resolution via Implicit Neural Representations
 
 [![DOI](https://img.shields.io/badge/arXiv-https%3A%2F%2Fdoi.org%2F10.48550%2FarXiv.2303.15065-B31B1B)](https://doi.org/10.48550/arXiv.2303.15065) [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
