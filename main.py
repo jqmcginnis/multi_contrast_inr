@@ -3,29 +3,27 @@ import time
 import os
 import yaml
 import pathlib
-
-import nibabel as nib
-import numpy as np
-import lpips
 import pdb
+import time
+import asyncio
+import cProfile
+import pstats
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import wandb
+import nibabel as nib
+import numpy as np
+import lpips
 
 from model import MLPv1, MLPv2, Siren, WireReal
-from dataset.dataset import MultiModalDataset, InferDataset
+from dataset import MultiModalDataset, InferDataset
 from visualization_utils import show_slices_gt
 from sklearn.preprocessing import MinMaxScaler
 from utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi
 from loss_functions import MILossGaussian, NMI, NCC
 
-
-import time
-import asyncio
-import cProfile
-import pstats
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Neural Implicit Function for a single scan.')

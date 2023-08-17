@@ -1,12 +1,70 @@
-from pathlib import Path
-import os
+
+import numpy as np
 import torch
 from torch.utils.data import Dataset
-from typing import Tuple
-from dataset.dataset_utils import get_image_coordinate_grid_nib, norm_grid
+import torch.nn.functional as F
+import nibabel
 import nibabel as nib
-import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from pathlib import Path
+from tqdm import tqdm
+import os
+import torch
+from typing import Tuple
+
+def min_max_scale(X, x_min, x_max, s_min, s_max):
+        return (X - x_min)/(x_max - x_min)*(s_max - s_min) + s_min
+
+def norm_grid(grid, xmin, xmax, smin=-1, smax=1):
+    return min_max_scale(X=grid, x_min=xmin, x_max=xmax, s_min=smin, s_max=smax)
+
+def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image):
+    img_header = image.header
+    img_data = image.get_fdata()
+    img_affine = image.affine
+
+    (x, y, z) = image.shape
+
+    label = []
+    coordinates = []
+
+    for i in tqdm(range(x)):
+        for j in range(y):
+            for k in range(z):
+                coordinates.append(nib.affines.apply_affine(img_affine, np.array(([i, j, k]))))
+                label.append(img_data[i, j, k])
+
+    # convert to numpy array
+    coordinates_arr = np.array(coordinates, dtype=np.float32)
+    label_arr = np.array(label, dtype=np.float32)
+    coordinates_arr_norm = min_max_scale(X=coordinates_arr, s_min=-1, s_max=1)
+    scaler = MinMaxScaler()
+
+    label_arr_norm = scaler.fit_transform(label_arr.reshape(-1, 1))
+
+    x_min, y_min, z_min = nib.affines.apply_affine(img_affine, np.array(([0, 0, 0])))
+    x_max, y_max, z_max = nib.affines.apply_affine(img_affine, np.array(([x, y, z])))
+
+    boundaries = dict()
+    boundaries['xmin'] = x_min
+    boundaries['ymin'] = y_min
+    boundaries['zmin'] = z_min
+    boundaries['xmax'] = x_max
+    boundaries['ymax'] = y_max
+    boundaries['zmax'] = z_max
+
+    image_dict = {
+        'boundaries': boundaries,
+        'affine': torch.tensor(img_affine),
+        'origin': torch.tensor(np.array([0])),
+        'spacing': torch.tensor(np.array(img_header["pixdim"][1:4])),
+        'dim': torch.tensor(np.array([x, y, z])),
+        'intensity': torch.tensor(label_arr, dtype=torch.float32).view(-1, 1),
+        'intensity_norm': torch.tensor(label_arr_norm, dtype=torch.float32).view(-1, 1),
+        'coordinates': torch.tensor(coordinates_arr, dtype=torch.float32),
+        'coordinates_norm': torch.tensor(coordinates_arr_norm, dtype=torch.float32),
+    }
+    return image_dict
 
 class _BaseDataset(Dataset):
     """Base dataset class"""
