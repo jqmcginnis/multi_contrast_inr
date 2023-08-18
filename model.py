@@ -104,7 +104,7 @@ class MLPv3(nn.Module):
         x2 = F.relu(self.fc_out2(x2))
 
         x1 = self.out1(self.fc_head1(x1))
-        x2 = self.out2(self.fc_head1(x2))
+        x2 = self.out2(self.fc_head2(x2))
         return torch.cat((x1,x2),dim=1)
 
 
