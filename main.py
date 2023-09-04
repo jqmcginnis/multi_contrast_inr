@@ -3,11 +3,6 @@ import time
 import os
 import yaml
 import pathlib
-import pdb
-import time
-import asyncio
-import cProfile
-import pstats
 
 import torch
 import torch.nn as nn
@@ -23,7 +18,6 @@ from visualization_utils import show_slices_gt
 from sklearn.preprocessing import MinMaxScaler
 from utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi
 from loss_functions import MILossGaussian, NMI, NCC
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Neural Implicit Function for a single scan.')
@@ -54,7 +48,6 @@ def main(args):
     config = dict2obj(config_dict)
 
     # we bypass lr, epoch and batch_size if we provide them via arparse
-
     if args.lr != None:
         config.TRAINING.LR = args.lr
         config_dict["TRAINING"]["LR"] = args.lr
@@ -191,9 +184,7 @@ def main(args):
 
     # model for lpips metric
     lpips_loss = lpips.LPIPS(net='alex').to(device)
-
     model_name = f'{model_name}_NUML_{config.MODEL.NUM_LAYERS}_N_{config.MODEL.HIDDEN_CHANNELS}_D_{config.MODEL.DROPOUT}_'     
-    # Loss
 
     if config.TRAINING.LOSS == 'L1Loss':
         criterion = nn.L1Loss()
@@ -265,7 +256,7 @@ def main(args):
                 contrast2_data = data[contrast2_mask,:]
 
                 data = torch.cat((contrast1_data,contrast2_data), dim=0)
-                # labels = torch.cat((contrast1_labels,contrast2_labels), dim=0)
+                labels = torch.cat((contrast1_labels,contrast2_labels), dim=0)
 
             else:
                 # we need to filter data and labels
@@ -301,10 +292,8 @@ def main(args):
 
             if not config.TRAINING.CONTRAST1_ONLY and not config.TRAINING.CONTRAST2_ONLY:   
                 # compute the loss on both modalities!
-                # target = torch.where(intensity_index, target[:, 1], target[:, 0])
                 mse_target1 = target[:len(contrast1_data),0:1]  # contrast1 output for contrast1 coordinate
                 mse_target2 = target[len(contrast1_data):,1:2]  # contrast2 output for contrast2 coordinate
-                # target_mse = torch.cat((mi_target1, mi_target2), dim=0)
 
                 if config.MI_CC.MI_USE_PRED:
                     mi_target1 = target[:,0:1]
@@ -319,7 +308,6 @@ def main(args):
                 target_mse = target
                    
             if not config.TRAINING.CONTRAST1_ONLY and not config.TRAINING.CONTRAST2_ONLY:  
-                
                 loss = config.TRAINING.LOSS_MSE_C1*criterion(mse_target1, contrast1_labels)+config.TRAINING.LOSS_MSE_C2*criterion(mse_target2, contrast2_labels)
             
             else:
@@ -376,10 +364,8 @@ def main(args):
         if epoch == (config.TRAINING.EPOCHS -1):
             torch.save(model.state_dict(), model_path)
 
-
         scheduler.step()
         ################ INFERENCE #######################
-
         model_inference = model
         model_inference.eval()
 
@@ -492,6 +478,7 @@ def main(args):
 
             img = nib.Nifti1Image(img_contrast1, affine)
 
+            # only store the last checkpoint
             if epoch == (config.TRAINING.EPOCHS -1):
                 nib.save(img, os.path.join(image_dir, model_name_epoch.replace("model.pt", f"_ct1.nii.gz")))
 
@@ -524,8 +511,7 @@ def main(args):
             if args.logging:
                 image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST2} prediction vs gt.")
                 wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2}": image})
-                
-            wandb.log(wandb_epoch_dict)  # update logs per epoch
+                wandb.log(wandb_epoch_dict)  # update logs per epoch
             
             mi_buffer[1:] = mi_buffer[:-1]  # shifting buffer
             mi_buffer[0] = metrics_mi_pred["mi"]  # update buffer
@@ -564,7 +550,7 @@ def main(args):
             label_arr = np.array(gt, dtype=np.float32)
             gt = scaler.fit_transform(gt.reshape(-1, 1)).reshape((x_dim, y_dim, z_dim))
 
-            img = model_intensities.reshape((x_dim, y_dim, z_dim))#.cpu().numpy()
+            img = model_intensities.reshape((x_dim, y_dim, z_dim))
             pred = img
             metrics = compute_metrics(gt=gt.copy(), pred=pred.copy(), mask=dataset.get_contrast1_gt_mask(), lpips_loss=lpips_loss, device=device)
             metrics_mi_true = compute_mi_hist(gt.copy(), gt_other.copy(), dataset.get_contrast2_gt_mask(), bins=32)
@@ -616,18 +602,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = parse_args()
-    pr = cProfile.Profile()
-
-    # python 3.8
-    # stats = pstats.Stats(pr)
-    # stats.sort_stats(pstats.SortKey.TIME)
-    # stats.print_stats()
-    # stats.dump_stats(filename='code_profiling.prof')
-
-
-    # python 3.6
-    # pr.enable()
     main(args)
-    # pr.disable()
-    # ps = pstats.Stats(pr).sort_stats('time', 'cumulative')
-    # ps.dump_stats(filename='code_profiling_improved.prof')

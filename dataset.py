@@ -37,7 +37,7 @@ def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image):
     # convert to numpy array
     coordinates_arr = np.array(coordinates, dtype=np.float32)
     label_arr = np.array(label, dtype=np.float32)
-    coordinates_arr_norm = min_max_scale(X=coordinates_arr, s_min=-1, s_max=1)
+    coordinates_arr_norm = min_max_scale(X=coordinates_arr, x_min = coordinates_arr.min(), x_max=coordinates_arr.max(), s_min=-1, s_max=1)
     scaler = MinMaxScaler()
 
     label_arr_norm = scaler.fit_transform(label_arr.reshape(-1, 1))
@@ -45,16 +45,7 @@ def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image):
     x_min, y_min, z_min = nib.affines.apply_affine(img_affine, np.array(([0, 0, 0])))
     x_max, y_max, z_max = nib.affines.apply_affine(img_affine, np.array(([x, y, z])))
 
-    boundaries = dict()
-    boundaries['xmin'] = x_min
-    boundaries['ymin'] = y_min
-    boundaries['zmin'] = z_min
-    boundaries['xmax'] = x_max
-    boundaries['ymax'] = y_max
-    boundaries['zmax'] = z_max
-
     image_dict = {
-        'boundaries': boundaries,
         'affine': torch.tensor(img_affine),
         'origin': torch.tensor(np.array([0])),
         'spacing': torch.tensor(np.array(img_header["pixdim"][1:4])),

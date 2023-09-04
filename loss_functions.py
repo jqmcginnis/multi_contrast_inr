@@ -6,7 +6,6 @@ import math
 from torch import Tensor
 from typing import Optional, Tuple
 from torch.nn.modules.loss import _Loss
-import pdb
 
 
 class StableStd(torch.autograd.Function):
@@ -29,7 +28,6 @@ class StableStd(torch.autograd.Function):
             * (grad_output.detach() / (result.detach() * 2 + e))
             * (tensor.detach() - tensor.mean().detach())
         )
-
 
 stablestd = StableStd.apply
 
@@ -293,31 +291,8 @@ class MILossGaussian(nn.Module):
         p_x = torch.sum(p_joint, dim=2)
         p_y = torch.sum(p_joint, dim=1)
 
-        #px_py = p_x[:, None] * p_y[None, :]
-        # px_py = (p_y.T @ p_x).unsqueeze(0)
-
         px_py = torch.outer(p_x.squeeze(), p_y.squeeze()).unsqueeze(0)
         nzs = p_joint >0 #>0
-
-        # calculate entropy
-        #ent_x = - torch.sum(p_x * torch.log(p_x + 1e-5), dim=1)  # (N,1)
-        #ent_y = - torch.sum(p_y * torch.log(p_y + 1e-5), dim=1)  # (N,1)
-        #ent_joint = - torch.sum(p_joint * torch.log(p_joint + 1e-5), dim=(1, 2))  # (N,1)
-
-        '''
-
-        if self.normalised:
-            if self.gt_val:
-                return (torch.mean((ent_x + ent_y) / ent_joint)-self.gt_val)**2
-            else:
-                return torch.mean((ent_x + ent_y) / ent_joint)
-        else:
-            if self.gt_val:
-                return (torch.mean(ent_x + ent_y - ent_joint)-self.gt_val)**2
-            else:
-                return torch.mean(ent_x + ent_y - ent_joint)
-        '''
-        # pdb.set_trace()
 
         if self.gt_val:
             return ((p_joint[nzs] * torch.log(p_joint[nzs]/ (px_py[nzs]+ 1e-12))).sum()-self.gt_val)**2

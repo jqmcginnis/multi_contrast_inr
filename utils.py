@@ -34,11 +34,6 @@ def flatten_dict(d, parent_key='', sep='_'):
     return dict(items)
 
 
-def min_max_scale(X, s_min, s_max):
-    x_min, x_max = X.min(), X.max()
-    return torch.tensor((X - x_min) / (x_max - x_min) * (s_max - s_min) + s_min)
-
-
 # from official FF repository
 class input_mapping(nn.Module):
     def __init__(self, B=None, factor=1.0):
