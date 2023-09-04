@@ -1,61 +1,11 @@
-
-import numpy as np
-import torch
-from torch.utils.data import Dataset
-import torch.nn.functional as F
-import nibabel
-import nibabel as nib
-from sklearn.preprocessing import MinMaxScaler
 from pathlib import Path
-from tqdm import tqdm
+from typing import Tuple
 import os
 import torch
-from typing import Tuple
-
-def min_max_scale(X, x_min, x_max, s_min, s_max):
-        return (X - x_min)/(x_max - x_min)*(s_max - s_min) + s_min
-
-def norm_grid(grid, xmin, xmax, smin=-1, smax=1):
-    return min_max_scale(X=grid, x_min=xmin, x_max=xmax, s_min=smin, s_max=smax)
-
-def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image):
-    img_header = image.header
-    img_data = image.get_fdata()
-    img_affine = image.affine
-
-    (x, y, z) = image.shape
-
-    label = []
-    coordinates = []
-
-    for i in tqdm(range(x)):
-        for j in range(y):
-            for k in range(z):
-                coordinates.append(nib.affines.apply_affine(img_affine, np.array(([i, j, k]))))
-                label.append(img_data[i, j, k])
-
-    # convert to numpy array
-    coordinates_arr = np.array(coordinates, dtype=np.float32)
-    label_arr = np.array(label, dtype=np.float32)
-    coordinates_arr_norm = min_max_scale(X=coordinates_arr, x_min = coordinates_arr.min(), x_max=coordinates_arr.max(), s_min=-1, s_max=1)
-    scaler = MinMaxScaler()
-
-    label_arr_norm = scaler.fit_transform(label_arr.reshape(-1, 1))
-
-    x_min, y_min, z_min = nib.affines.apply_affine(img_affine, np.array(([0, 0, 0])))
-    x_max, y_max, z_max = nib.affines.apply_affine(img_affine, np.array(([x, y, z])))
-
-    image_dict = {
-        'affine': torch.tensor(img_affine),
-        'origin': torch.tensor(np.array([0])),
-        'spacing': torch.tensor(np.array(img_header["pixdim"][1:4])),
-        'dim': torch.tensor(np.array([x, y, z])),
-        'intensity': torch.tensor(label_arr, dtype=torch.float32).view(-1, 1),
-        'intensity_norm': torch.tensor(label_arr_norm, dtype=torch.float32).view(-1, 1),
-        'coordinates': torch.tensor(coordinates_arr, dtype=torch.float32),
-        'coordinates_norm': torch.tensor(coordinates_arr_norm, dtype=torch.float32),
-    }
-    return image_dict
+import numpy as np
+from torch.utils.data import Dataset
+import torch.nn.functional as F
+from dataset_utils import norm_grid, get_image_coordinate_grid_nib
 
 class _BaseDataset(Dataset):
     """Base dataset class"""
@@ -78,10 +28,9 @@ class _BaseDataset(Dataset):
         raise NotImplementedError
 
 class MultiModalDataset(_BaseDataset):
-    r""" Dataset of view1 and view2 T2w image sequence of the same patient.
-    These could be e.g. an view1 and view2 T2w brain image,
-    an view1 and view2 spine image, etc.
-    However, both images must be registered to one another - the Dataset does not do this.
+    r""" Dataset of view1/contrast1 and view2/contrast2 T2w image sequence of the same patient.
+    These could be e.g. an view1 and view2 T2w brain image, an view1 and view2 spine image, etc.
+    However, both images must be registered to one another - the daataset already assumes this.
     Args:
         root (string): Root directory where the dataset should be saved.
         transform (callable, optional): A function/transform that takes in an
@@ -121,35 +70,24 @@ class MultiModalDataset(_BaseDataset):
 
         print(self.dataset_name)
 
+        # we assume a BIDS-style formated directory
+
         files = sorted(list(Path(self.image_dir).rglob('*.nii.gz'))) 
         files = [str(x) for x in files]
-
 
         # only keep NIFTIs that follow specific subject 
         files = [k for k in files if self.subject_id in k]
         print(files)
 
         # flair3 and flair3d_LR or t1 and t1_LR
-        gt_contrast1 = [x for x in files if self.contrast1_GT_str in x and self.contrast1_LR_str not in x and 'mask' not in x][0]
-        gt_contrast2 = [x for x in files if self.contrast2_GT_str in x and self.contrast2_LR_str not in x and 'mask' not in x][0]
-
-        lr_contrast1 = [x for x in files if self.contrast1_LR_str in x and 'mask' not in x][0]
-        lr_contrast2 = [x for x in files if self.contrast2_LR_str in x and 'mask' not in x][0]
-
-        lr_contrast1_mask = [x for x in files if self.contrast1_LR_mask_str in x and 'mask' in x][0]
-        lr_contrast2_mask = [x for x in files if self.contrast2_LR_mask_str in x and 'mask' in x][0]
-
-        gt_contrast1_mask = [x for x in files if self.contrast1_GT_mask_str in x and 'mask' in x][0]
-        gt_contrast2_mask = [x for x in files if self.contrast2_GT_mask_str in x and 'mask' in x][0]
-
-        self.lr_contrast1 = lr_contrast1
-        self.lr_contrast2 = lr_contrast2
-        self.lr_contrast1_mask = lr_contrast1_mask
-        self.lr_contrast2_mask = lr_contrast2_mask
-        self.gt_contrast1 = gt_contrast1
-        self.gt_contrast2 = gt_contrast2
-        self.gt_contrast1_mask = gt_contrast1_mask
-        self.gt_contrast2_mask = gt_contrast2_mask
+        self.gt_contrast1 = [x for x in files if self.contrast1_GT_str in x and self.contrast1_LR_str not in x and 'mask' not in x][0]
+        self.gt_contrast2 = [x for x in files if self.contrast2_GT_str in x and self.contrast2_LR_str not in x and 'mask' not in x][0]
+        self.lr_contrast1 = [x for x in files if self.contrast1_LR_str in x and 'mask' not in x][0]
+        self.lr_contrast2 = [x for x in files if self.contrast2_LR_str in x and 'mask' not in x][0]
+        self.lr_contrast1_mask = [x for x in files if self.contrast1_LR_mask_str in x and 'mask' in x][0]
+        self.lr_contrast2_mask = [x for x in files if self.contrast2_LR_mask_str in x and 'mask' in x][0]
+        self.gt_contrast1_mask = [x for x in files if self.contrast1_GT_mask_str in x and 'mask' in x][0]
+        self.gt_contrast2_mask = [x for x in files if self.contrast2_GT_mask_str in x and 'mask' in x][0]
 
         if os.path.isfile(self.dataset_name):
             print("Dataset available.")
@@ -165,7 +103,7 @@ class MultiModalDataset(_BaseDataset):
             self.gt_contrast1_mask = dataset["gt_contrast1_mask"]
             self.gt_contrast2_mask = dataset["gt_contrast2_mask"]
             self.coordinates = dataset["coordinates"]
-            print("skipping preprocessing.")
+            print("Skipped preprocessing.")
 
         else:
             self.len = 0
@@ -199,12 +137,12 @@ class MultiModalDataset(_BaseDataset):
     
     def get_dim(self):
         return self.dim
-       
-    def get_contrast2_gt(self):
-        return self.gt_contrast2
     
     def get_contrast1_gt(self):
         return self.gt_contrast1
+           
+    def get_contrast2_gt(self):
+        return self.gt_contrast2
         
     def get_contrast2_gt_mask(self):
         return self.gt_contrast2_mask
@@ -214,49 +152,41 @@ class MultiModalDataset(_BaseDataset):
 
     def _process(self):
 
+        # This allows the user to identify if all images/masks are correctly assigned.
+
         print(f"Using {self.lr_contrast1} as contrast1.")
         print(f"Using {self.lr_contrast2} as contrast2.")
-
         print(f"Using {self.lr_contrast1_mask} as contrast1 mask.")
         print(f"Using {self.lr_contrast2_mask} as contrast2 mask.")
-
         print(f"Using {self.gt_contrast1} as gt contrast1.")
         print(f"Using {self.gt_contrast2} as gt contrast2.")
-
         print(f"Using {self.gt_contrast1_mask} as gt contrast1 mask.")
         print(f"Using {self.gt_contrast2_mask} as gt contrast2 mask.")
 
         contrast1_dict = get_image_coordinate_grid_nib(nib.load(str(self.lr_contrast1)))
-        contrast2_dict = get_image_coordinate_grid_nib(nib.load(str(self.lr_contrast2)))
-        
+        contrast2_dict = get_image_coordinate_grid_nib(nib.load(str(self.lr_contrast2)))      
         contrast1_mask_dict = get_image_coordinate_grid_nib(nib.load(str(self.lr_contrast1_mask)))
         contrast2_mask_dict = get_image_coordinate_grid_nib(nib.load(str(self.lr_contrast2_mask)))
-
-        data_contrast2 = contrast2_dict["coordinates"]
         data_contrast1 = contrast1_dict["coordinates"]
+        data_contrast2 = contrast2_dict["coordinates"]
 
         min1, max1 = data_contrast1.min(), data_contrast1.max()
         min2, max2 = data_contrast2.min(), data_contrast2.max()
-
-        print(min1, max1)
-        print(min2, max2)
-
         min_c, max_c = np.min(np.array([min1, min2])), np.max(np.array([max1, max2]))
 
-        print(min_c, max_c)
+        print(f'Min/Max of Contrast 1 {min1, max1}')
+        print(f'Min/Max of Contrast 2 {min2, max2}')
+        print(f'Global Min/Max of Contrasts {min_c, max_c}')
 
         data_contrast1 = norm_grid(data_contrast1, xmin=min_c, xmax=max_c)
         data_contrast2 = norm_grid(data_contrast2, xmin=min_c, xmax=max_c)
-
-        labels_contrast2 = contrast2_dict["intensity_norm"]
         labels_contrast1 = contrast1_dict["intensity_norm"]
-        
-        mask_contrast2 = contrast2_mask_dict["intensity_norm"].bool()
+        labels_contrast2 = contrast2_dict["intensity_norm"]        
         mask_contrast1 = contrast1_mask_dict["intensity_norm"].bool()
-
-        labels_contrast2_stack = torch.cat((labels_contrast2, torch.ones(labels_contrast2.shape)*-1), dim=1)
+        mask_contrast2 = contrast2_mask_dict["intensity_norm"].bool()
         labels_contrast1_stack = torch.cat((torch.ones(labels_contrast1.shape)*-1, labels_contrast1), dim=1)
-        
+        labels_contrast2_stack = torch.cat((labels_contrast2, torch.ones(labels_contrast2.shape)*-1), dim=1) 
+
         # assemble the data and labels
         self.data = torch.cat((data_contrast1, data_contrast2), dim=0)
         self.label = torch.cat((labels_contrast1_stack, labels_contrast2_stack), dim=0)
@@ -266,20 +196,15 @@ class MultiModalDataset(_BaseDataset):
         # store the GT images to compute SSIM and other metrics!
         gt_contrast1_dict = get_image_coordinate_grid_nib(nib.load(str(self.gt_contrast1)))
         gt_contrast2_dict = get_image_coordinate_grid_nib(nib.load(str(self.gt_contrast2)))
-
-        self.gt_contrast2 = gt_contrast2_dict["intensity_norm"]
         self.gt_contrast1 = gt_contrast1_dict["intensity_norm"]
-
-        self.gt_contrast2_mask = torch.tensor(nib.load(self.gt_contrast2_mask).get_fdata()).bool()
+        self.gt_contrast2 = gt_contrast2_dict["intensity_norm"]
         self.gt_contrast1_mask = torch.tensor(nib.load(self.gt_contrast1_mask).get_fdata()).bool()
+        self.gt_contrast2_mask = torch.tensor(nib.load(self.gt_contrast2_mask).get_fdata()).bool()
 
+        # inference grid
         self.coordinates = gt_contrast1_dict["coordinates_norm"]
-
         self.affine = gt_contrast1_dict["affine"]
         self.dim = gt_contrast1_dict["dim"]
-
-        print(self.data.shape)
-        print(self.label.shape)
 
         # store to avoid preprocessing
         dataset = {

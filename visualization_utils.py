@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 
-
 def show_slices(slices, epoch):
     """ Function to display row of image slices """
     plt.close()
