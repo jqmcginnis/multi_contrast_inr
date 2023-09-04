@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Tuple
 import os
 import torch
+import nibabel as nib
 import numpy as np
 from torch.utils.data import Dataset
 import torch.nn.functional as F
