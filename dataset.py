@@ -80,7 +80,7 @@ class MultiModalDataset(_BaseDataset):
         files = [k for k in files if self.subject_id in k]
         print(files)
 
-        # flair3 and flair3d_LR or t1 and t1_LR
+        # flair3d and flair3d_LR or t1 and t1_LR
         self.gt_contrast1 = [x for x in files if self.contrast1_GT_str in x and self.contrast1_LR_str not in x and 'mask' not in x][0]
         self.gt_contrast2 = [x for x in files if self.contrast2_GT_str in x and self.contrast2_LR_str not in x and 'mask' not in x][0]
         self.lr_contrast1 = [x for x in files if self.contrast1_LR_str in x and 'mask' not in x][0]
