@@ -90,11 +90,13 @@ To log to wandb, please use the `--logging` option.
 Please cite this work if any of our code or ideas are helpful for your research.
 
 ```
-@article{mcginnis2023multi,
-  title={Multi-contrast MRI Super-resolution via Implicit Neural Representations},
-  author={McGinnis, Julian and Shit, Suprosanna and Li, Hongwei Bran and Sideri-Lampretsa, Vasiliki and Graf, Robert and Dannecker, Maik and Pan, Jiazhen and Ans{\'o}, Nil Stolt and M{\"u}hlau, Mark and Kirschke, Jan S and others},
-  journal={arXiv preprint arXiv:2303.15065},
-  year={2023}
+@inproceedings{mcginnisandshit2023single,
+  title={Single-subject Multi-contrast MRI Super-resolution via Implicit Neural Representations},
+  author={McGinnis, Julian and Shit, Suprosanna and Li, Hongwei Bran and Sideri-Lampretsa, Vasiliki and Graf, Robert and Dannecker, Maik and Pan, Jiazhen and Stolt-Ans{\'o}, Nil and M{\"u}hlau, Mark and Kirschke, Jan S and others},
+  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
+  pages={173--183},
+  year={2023},
+  organization={Springer}
 }
 ```
 
